@@ -71,16 +71,16 @@ let swiftPMProduct = (
     ]
 )
 
-#if os(Windows)
+//#if os(Windows)
 let includeDynamicLibrary: Bool = false
 let systemSQLitePkgConfig: String? = nil
-#else
-let includeDynamicLibrary: Bool = true
-var systemSQLitePkgConfig: String? = "sqlite3"
-if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" {
-    systemSQLitePkgConfig = nil
-}
-#endif
+//#else
+//let includeDynamicLibrary: Bool = true
+//var systemSQLitePkgConfig: String? = "sqlite3"
+//if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" {
+//    systemSQLitePkgConfig = nil
+//}
+//#endif
 
 /** An array of products which have two versions listed: one dynamically linked, the other with the
  automatic linking type with `-auto` suffix appended to product's name.
@@ -201,8 +201,8 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "_AsyncFileSystem",
-                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux])),
-                .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
+                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst])),
+                .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.linux, .windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
