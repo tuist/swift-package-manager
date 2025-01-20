@@ -594,12 +594,14 @@ public final class SwiftCommandState {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
+        let start = DispatchTime.now()
         try await workspace.resolve(
             root: root,
             forceResolution: false,
             forceResolvedVersions: options.resolver.forceResolvedVersions,
             observabilityScope: self.observabilityScope
         )
+        print("The total time it took to resolve dependencies: \(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds)")
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.

@@ -342,10 +342,12 @@ extension Workspace {
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
+        let startLoadRoot = DispatchTime.now()
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
         )
+        print("It took \(DispatchTime.now().uptimeNanoseconds - startLoadRoot.uptimeNanoseconds) to load root manifests")
         let graphRoot = PackageGraphRoot(
             input: root,
             manifests: rootManifests,
@@ -355,6 +357,7 @@ extension Workspace {
         )
 
         // Load the `Package.resolved` store or abort now.
+        let startLoadDependencyManifests = DispatchTime.now()
         guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }),
               !observabilityScope.errorsReported
         else {
@@ -366,11 +369,13 @@ extension Workspace {
                 .notRequired
             )
         }
+        print("It took \(DispatchTime.now().uptimeNanoseconds - startLoadDependencyManifests.uptimeNanoseconds) to load resolved packages store")
 
         // Request all the containers to fetch them in parallel.
         //
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
+        let requestPackageContainersStart = DispatchTime.now()
         await withThrowingTaskGroup(of: Void.self) { taskGroup in
             for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
                 let observabilityScope = observabilityScope.makeChildScope(
@@ -405,6 +410,8 @@ extension Workspace {
                 }
             }
         }
+        
+        print("It took \(DispatchTime.now().uptimeNanoseconds - requestPackageContainersStart.uptimeNanoseconds) to request package containers")
 
         // Compute resolved packages that we need to actually clone.
         //
@@ -427,6 +434,7 @@ extension Workspace {
         }
 
         // Retrieve the required resolved packages.
+        let start = DispatchTime.now()
         await withThrowingTaskGroup(of: Void.self) { taskGroup in
             for resolvedPackage in requiredResolvedPackages {
                 let observabilityScope = observabilityScope.makeChildScope(
@@ -455,26 +463,36 @@ extension Workspace {
                 }
             }
         }
+        
+        print("It took \(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) to retrieve resolved package versions")
+        
+        let loadDependencyStart = DispatchTime.now()
 
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             automaticallyAddManagedDependencies: true,
             observabilityScope: observabilityScope
         )
-
+        print("It took \(DispatchTime.now().uptimeNanoseconds - loadDependencyStart.uptimeNanoseconds) to load current dependency manifests")
+        
+        let updateBinaryArtifacts = DispatchTime.now()
         try await self.updateBinaryArtifacts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
             observabilityScope: observabilityScope
         )
+        print("It took \(DispatchTime.now().uptimeNanoseconds - updateBinaryArtifacts.uptimeNanoseconds) to update binary artifacts")
 
+        let updatePrebuilts = DispatchTime.now()
         // Update prebuilts
         try await self.updatePrebuilts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
             observabilityScope: observabilityScope
         )
+        print("It took \(DispatchTime.now().uptimeNanoseconds -  updatePrebuilts.uptimeNanoseconds) to update prebuilts")
 
+        let precomputationResultTime = DispatchTime.now()
         let precomputationResult = try await self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
@@ -482,6 +500,7 @@ extension Workspace {
             constraints: [],
             observabilityScope: observabilityScope
         )
+        print("It took \(DispatchTime.now().uptimeNanoseconds -  precomputationResultTime.uptimeNanoseconds) to precompute resolution")
 
         return (currentManifests, precomputationResult)
     }
